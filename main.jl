@@ -40,19 +40,16 @@ function Nodal_desity(dense_mat::Matrix{Int64})
     zero_ver_shot = zeros(aa)
     zero_leng_long = zeros(bb + 1)'
     # Leva horni
-    LH = vcat(zero_leng_long, hcat(zero_ver_shot, dense_mat))
-    # Prava horni
-    PH = vcat(zero_leng_long, hcat(dense_mat, zero_ver_shot))
-    # Leva spotní
-    LS = vcat(hcat(zero_ver_shot, dense_mat), zero_leng_long)
-    # Prava spotní
-    PS = vcat(hcat(dense_mat, zero_ver_shot), zero_leng_long)
+    LH = vcat(zero_leng_long, hcat(zero_ver_shot, dense_mat))  # Leva horni
+    PH = vcat(zero_leng_long, hcat(dense_mat, zero_ver_shot))  # Prava horni
+    LS = vcat(hcat(zero_ver_shot, dense_mat), zero_leng_long)  # Leva spotní
+    PS = vcat(hcat(dense_mat, zero_ver_shot), zero_leng_long)  # Prava spotní
     # # Matice na dělení:
     hrana = [1 fill(2.0, (1, bb - 1)) 1]
     stred = [2 fill(4.0, (1, bb - 1)) 2]
-    stred_mat = stred
-    for k = 1:(aa-2)
-        stred_mat = vcat(stred_mat, stred)
+    stred_mat = zeros(aa-1, bb+1)
+    for k = 1:(aa-1)
+        stred_mat[k,:] = stred
     end
     delitel = vcat(vcat(hrana, stred_mat), hrana)
     # Složení:
@@ -60,6 +57,7 @@ function Nodal_desity(dense_mat::Matrix{Int64})
     return Hustota_uzly
 end
 Hustota_uzly = Nodal_desity(dense_mat)
+
 
 
 scale = 1
@@ -110,7 +108,6 @@ A_matr = zeros(Int.(size(Grid_x) .+ (2 * obl) * scale))
 # Rudukce matice na počáteční velikost
 A_mat = A_matr[Int(obl/scale)+1:Int(size(A_matr,1)-obl/scale),Int(obl/scale)+1:Int(size(A_matr,2)-obl/scale)]
 
-mean(dense_mat)
 (Th_mat, hladina) = LS_Threshold_2D(A_mat, mean(dense_mat), 4.0)
 HeatmapYellowBlack(A_mat)
 HeatmapYellowBlack(Th_mat)
