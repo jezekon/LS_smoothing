@@ -59,7 +59,6 @@ end
 Hustota_uzly = Nodal_desity(dense_mat)
 
 
-
 scale = 1
 B = 1.
 obl = 3
@@ -81,36 +80,61 @@ function build_A(Lx::Integer, Ly::Integer, obl::Real, B::Real)
     end
     return A
 end
+# @time A = build_A(Lx+1, Ly+1, obl, B)
+# s = A \ vec(Hustota_uzly)
+# s_mat = reshape(s, (Ly+1, Lx+1))  # from system of equations
+s_mat = Hustota_uzly            # form nodal density
 
-@time A = build_A(Lx, Ly, obl, B)
-s = A \ vec(dense_mat)
-scale = 1
 
 x_r = range(start = first(0), stop = last(Lx), length = Lx * scale + 1)
 y_r = range(start = first(0), stop = last(Ly), length = Ly * scale + 1)
 okno = range(start = first(Obalka), stop = last(Obalka), length = (length(Obalka) - 1) * scale + 1)
-
 Grid_y, Grid_x = mgrid(y_r,x_r)
 
-
-A_matr = zeros(Int.(size(Grid_x) .+ (2 * obl) * scale))
+function BuildLevelSetFunction(
+    okno::StepRangeLen,
+    B::Float64,
+    Lx::Int,#Grid::BoxOfStructuredGrid,
+    Ly::Int,
+    scale::Int,
+    obl::Int,
+    vyska_mat::Matrix,
+    FGx::Matrix,
+)
+    @floop begin
+        A_matr = zeros(Int.(size(FGx) .+ (2 * obl) * scale))
         Grid_oy, Grid_ox = mgrid(okno, okno)
         rr = sqrt.((Grid_ox .^ 2) + (Grid_oy .^ 2))
         A_kop = exp.(-(rr ./ B) .^ 2)
-
+        # for i = 1:(Grid.NoW[1]), j = 1:(Grid.NoW[2])
         for i = 1:(Lx), j = 1:(Ly)
             Pos_i = RBF_Position(i, scale)
             Pos_j = RBF_Position(j, scale)
-            Ar = Hustota_uzly[j, i] * A_kop
+            Ar = vyska_mat[j, i] * A_kop
             A_matr[Pos_j[1]:Pos_j[2], Pos_i[1]:Pos_i[2]] += Ar
         end
+    end
+    return A_mat = A_matr[
+        Int(obl * scale)+1:Int(size(A_matr, 1) - obl * scale),
+        Int(obl * scale)+1:Int(size(A_matr, 2) - obl * scale),
+    ]
+end
+A_mat = @time(BuildLevelSetFunction(okno, B, Lx, Ly, scale, obl, s_mat, Grid_x))
 
-# Rudukce matice na počáteční velikost
-A_mat = A_matr[Int(obl/scale)+1:Int(size(A_matr,1)-obl/scale),Int(obl/scale)+1:Int(size(A_matr,2)-obl/scale)]
+# Element density
+El_dense = zeros(size(dense_mat))
+for i = 1:Lx, j = 1:Ly
+    El_dense[j,i] =  mean([A_mat[j,i], A_mat[j,i+1], A_mat[j+1,i], A_mat[j+1,i+1]])
+end
 
-(Th_mat, hladina) = LS_Threshold_2D(A_mat, mean(dense_mat), 4.0)
-HeatmapYellowBlack(A_mat)
+# Finding the level to maintain the volume ratio:
+(Th_mat, hladina) = LS_Threshold_2D(El_dense, mean(dense_mat), 4.0)
+
+# Plot:
+# HeatmapYellowBlack(A_mat)
 HeatmapYellowBlack(Th_mat)
-HeatmapYellowBlack(dense_mat.*1.0)
+# HeatmapYellowBlack(El_dense)
+# HeatmapYellowBlack(dense_mat.*1.0)
 
+# Write data:
 # writedlm("output.txt", Int.(Th_mat))
