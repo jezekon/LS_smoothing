@@ -1,3 +1,6 @@
+# using REPLVim
+# @async REPLVim.serve()
+
 # add packages if you need:
 # add PlotlyJS, DelimitedFiles, LinearAlgebra, Statistics, BenchmarkTools, FLoops, SparseArrays
 using PlotlyJS,
@@ -47,9 +50,9 @@ function Nodal_desity(dense_mat::Matrix{Int64})
     # # Matice na dělení:
     hrana = [1 fill(2.0, (1, bb - 1)) 1]
     stred = [2 fill(4.0, (1, bb - 1)) 2]
-    stred_mat = zeros(aa-1, bb+1)
+    stred_mat = zeros(aa - 1, bb + 1)
     for k = 1:(aa-1)
-        stred_mat[k,:] = stred
+        stred_mat[k, :] = stred
     end
     delitel = vcat(vcat(hrana, stred_mat), hrana)
     # Složení:
@@ -60,9 +63,8 @@ Hustota_uzly = Nodal_desity(dense_mat)
 
 
 scale = 1
-B = 1.
+B = 1.0
 obl = 3
-Obalka = range(start = -obl * B, stop = obl * B, length = 2 * obl + 1)
 
 function build_A(Lx::Integer, Ly::Integer, obl::Real, B::Real)
     nnod = Lx * Ly
@@ -85,11 +87,34 @@ end
 # s_mat = reshape(s, (Ly+1, Lx+1))  # from system of equations
 s_mat = Hustota_uzly            # form nodal density
 
+struct BoxOfStructuredGrid{T<:Array} #struct for Grid
+    x::StepRangeLen
+    y::StepRangeLen
+    Gx::T        #Grid X
+    Gy::T        #Grid Y
+    NoW::Vector  #Number of woxels
+    o::StepRangeLen
+end
+function Structured_mesh2D(B::Float64, Lx::Int, Ly::Int, scale::Int, obl::Int)
+    x_r = range(start=first(0), stop=last(Lx), length=Lx * scale + 1)
+    y_r = range(start=first(0), stop=last(Ly), length=Ly * scale + 1)
+    Obalka = range(start=-obl * B, stop=obl * B, length=2 * obl + 1)
+    okno = range(start=first(Obalka), stop=last(Obalka), length=(length(Obalka) - 1) * scale + 1)
+    Grid_y, Grid_x = mgrid(y_r, x_r)
+    N_box = [Lx, Ly]
+    Grid = BoxOfStructuredGrid(
+        x_r,
+        y_r,
+        Grid_x,
+        Grid_y,
+        N_box,
+        okno,
+    )
+    return Grid
+end
+# Grid = Structured_mesh2D(X, vox_size, obl)
+Grid = Structured_mesh2D(B, Lx, Ly, scale, obl)
 
-x_r = range(start = first(0), stop = last(Lx), length = Lx * scale + 1)
-y_r = range(start = first(0), stop = last(Ly), length = Ly * scale + 1)
-okno = range(start = first(Obalka), stop = last(Obalka), length = (length(Obalka) - 1) * scale + 1)
-Grid_y, Grid_x = mgrid(y_r,x_r)
 
 function BuildLevelSetFunction(
     okno::StepRangeLen,
@@ -122,11 +147,14 @@ end
 A_mat = @time(BuildLevelSetFunction(okno, B, Lx, Ly, scale, obl, s_mat, Grid_x))
 
 # Element density
-El_dense = zeros(size(dense_mat))
-for i = 1:Lx, j = 1:Ly
-    El_dense[j,i] =  mean([A_mat[j,i], A_mat[j,i+1], A_mat[j+1,i], A_mat[j+1,i+1]])
+function ElementDensity(dense_mat::Matrix, Lx::Int, Ly::Int)
+    El_dense = zeros(size(dense_mat))
+    for i = 1:Lx, j = 1:Ly
+        El_dense[j, i] = mean([A_mat[j, i], A_mat[j, i+1], A_mat[j+1, i], A_mat[j+1, i+1]])
+    end
+    return El_dense
 end
-
+El_dense = ElementDensity(dense_mat, Lx, Ly)
 # Finding the level to maintain the volume ratio:
 (Th_mat, hladina) = LS_Threshold_2D(El_dense, mean(dense_mat), 4.0)
 

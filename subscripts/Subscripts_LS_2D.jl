@@ -69,3 +69,32 @@ function LS_Threshold_2D(s_mat::Matrix, V_frac::Float64, Exp::Float64)
     return [Th_mat, th]
 end
 
+
+## A structured grid covering the area in which an unstructured grid is located.
+# function Structured_mesh2D(X::Matrix, vs::Float64, obl::Int)
+#     Box_step = nothing
+#     for i = 1:length(X[:, 1])
+#         range_X = [minimum(X[i, :]), maximum(X[i, :])]
+#         st = range((range_X[1]-obl*vs), step = vs, stop = (range_X[2]+obl*vs))
+#         # st = range(range_X[1], step = vs, stop = range_X[2] + vs) # rozšíření oblasti o jeden element
+#         if Box_step == nothing
+#             Box_step = [st]
+#         else
+#             Box_step = vcat(Box_step, [st])
+#         end
+#     end
+#     L_box = abs.(last.(Box_step) .- first.(Box_step))
+#     N_box = length.(Box_step)
+#     Grid_y, Grid_x = mgrid(Box_step[2], Box_step[1])
+#     Grid = BoxOfStructuredGrid(
+#         Box_step[1],
+#         Box_step[2],
+#         Grid_x,
+#         Grid_y,
+#         L_box,
+#         N_box,
+#     )
+#     return Grid
+# end
+
+
