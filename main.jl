@@ -42,7 +42,6 @@ function Nodal_desity(dense_mat::Matrix{Int64})
     # #Pomocné matice (rozsirene)
     zero_ver_shot = zeros(aa)
     zero_leng_long = zeros(bb + 1)'
-    # Leva horni
     LH = vcat(zero_leng_long, hcat(zero_ver_shot, dense_mat))  # Leva horni
     PH = vcat(zero_leng_long, hcat(dense_mat, zero_ver_shot))  # Prava horni
     LS = vcat(hcat(zero_ver_shot, dense_mat), zero_leng_long)  # Leva spotní
@@ -95,6 +94,7 @@ struct BoxOfStructuredGrid{T<:Array} #struct for Grid
     NoW::Vector  #Number of woxels
     o::StepRangeLen
 end
+
 function Structured_mesh2D(B::Float64, Lx::Int, Ly::Int, scale::Int, obl::Int)
     x_r = range(start=first(0), stop=last(Lx), length=Lx * scale + 1)
     y_r = range(start=first(0), stop=last(Ly), length=Ly * scale + 1)
@@ -117,22 +117,19 @@ Grid = Structured_mesh2D(B, Lx, Ly, scale, obl)
 
 
 function BuildLevelSetFunction(
-    okno::StepRangeLen,
     B::Float64,
-    Lx::Int,#Grid::BoxOfStructuredGrid,
-    Ly::Int,
+    Grid::BoxOfStructuredGrid,
     scale::Int,
     obl::Int,
     vyska_mat::Matrix,
-    FGx::Matrix,
 )
     @floop begin
-        A_matr = zeros(Int.(size(FGx) .+ (2 * obl) * scale))
-        Grid_oy, Grid_ox = mgrid(okno, okno)
+        A_matr = zeros(Int.(size(Grid.Gx) .+ (2 * obl) * scale))
+        Grid_oy, Grid_ox = mgrid(Grid.o, Grid.o)
         rr = sqrt.((Grid_ox .^ 2) + (Grid_oy .^ 2))
         A_kop = exp.(-(rr ./ B) .^ 2)
-        # for i = 1:(Grid.NoW[1]), j = 1:(Grid.NoW[2])
-        for i = 1:(Lx), j = 1:(Ly)
+        for i = 1:(Grid.NoW[1]), j = 1:(Grid.NoW[2])
+        # for i = 1:(Lx), j = 1:(Ly)
             Pos_i = RBF_Position(i, scale)
             Pos_j = RBF_Position(j, scale)
             Ar = vyska_mat[j, i] * A_kop
@@ -144,17 +141,18 @@ function BuildLevelSetFunction(
         Int(obl * scale)+1:Int(size(A_matr, 2) - obl * scale),
     ]
 end
-A_mat = @time(BuildLevelSetFunction(okno, B, Lx, Ly, scale, obl, s_mat, Grid_x))
+A_mat = @time(BuildLevelSetFunction(B, Grid, scale, obl, s_mat))
 
 # Element density
-function ElementDensity(dense_mat::Matrix, Lx::Int, Ly::Int)
+function ElementDensity(dense_mat::Matrix, Grid::BoxOfStructuredGrid)
     El_dense = zeros(size(dense_mat))
-    for i = 1:Lx, j = 1:Ly
+    for i = 1:Grid.NoW[1], j = 1:Grid.NoW[2]
         El_dense[j, i] = mean([A_mat[j, i], A_mat[j, i+1], A_mat[j+1, i], A_mat[j+1, i+1]])
     end
     return El_dense
 end
-El_dense = ElementDensity(dense_mat, Lx, Ly)
+El_dense = ElementDensity(dense_mat, Grid)
+
 # Finding the level to maintain the volume ratio:
 (Th_mat, hladina) = LS_Threshold_2D(El_dense, mean(dense_mat), 4.0)
 
